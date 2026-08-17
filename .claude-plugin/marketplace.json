@@ -1,0 +1,22 @@
+{
+  "name": "yontrack",
+  "owner": {
+    "name": "Yontrack",
+    "url": "https://yontrack.com"
+  },
+  "description": "Yontrack agent skills, as an installable Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "yontrack-skills",
+      "source": "./",
+      "description": "Agent skills for Yontrack — wiring a repository's CI to Yontrack and driving the Yontrack CLI.",
+      "category": "devops",
+      "keywords": [
+        "yontrack",
+        "ci",
+        "github-actions",
+        "continuous-delivery"
+      ]
+    }
+  ]
+}
