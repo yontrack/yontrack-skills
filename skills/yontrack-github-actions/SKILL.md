@@ -54,11 +54,12 @@ it is a stamp nobody reads.
           YONTRACK_TOKEN: ${{ secrets.YONTRACK_TOKEN }}
         with:
           version: 5.1.0
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 Pin `version`. An unpinned CLI lets a Yontrack release turn a green pipeline red in a repository nobody
-touched, and pinning also drops the GitHub release lookup — which matters once several jobs each install
-the CLI.
+touched. The token keeps the download off the anonymous GitHub rate limit, which starts to matter once
+several jobs each install the CLI.
 
 The action exports `YONTRACK_PROJECT_NAME`, `YONTRACK_BRANCH_NAME` and `YONTRACK_BUILD_NAME` for the rest
 of *that job*, and every later `yontrack` command reads them instead of `--project`, `--branch` and
@@ -130,8 +131,9 @@ The minimal file is `version: v1` with `configuration: {}` — Yontrack then cre
 build from the CI context and nothing else.
 
 Both the file and the CLI carry more than this: properties, notifications, workflows, auto-versioning,
-`@path` file inclusion, `--var` and `--env` template variables, Sprig functions. Reach for
-[doc.yontrack.com](https://doc.yontrack.com) rather than guessing at the schema.
+`@path` file inclusion, `--var` and `--env` template variables, Sprig functions. Reach for the
+[Yontrack reference documentation](https://docs.yontrack.com/yontrack/ref/index.html) rather than
+guessing at the schema.
 
 ## Validation data
 
