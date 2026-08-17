@@ -59,7 +59,7 @@ jobs:
 
       - name: Register the build
         id: config
-        uses: nemerosa/ontrack-github-actions-cli-config@v1.3.0
+        uses: nemerosa/ontrack-github-actions-cli-config@v2.0.0
         env:
           YONTRACK_URL: ${{ vars.YONTRACK_URL }}
           YONTRACK_TOKEN: ${{ secrets.YONTRACK_TOKEN }}
