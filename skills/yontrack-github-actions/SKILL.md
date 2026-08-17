@@ -120,6 +120,21 @@ Give the step an `id`, then validate on its outcome:
 broke — which is the case worth seeing in Yontrack. Prefer typed data over a bare status wherever the step
 produces it (see [Validation data](#validation-data)).
 
+**Run `yontrack` from the root of the workspace.** The CLI reads its configuration from
+`./.yontrack-config.yaml`, resolved against the current directory, and the linking step writes it at the
+workspace root. In a job carrying a `defaults.run.working-directory`, a validation step must opt out or it
+fails with `No current configuration`:
+
+```yaml
+    defaults:
+      run:
+        working-directory: client
+# ...
+      - if: ${{ steps.test.outcome != '' }}
+        working-directory: ${{ github.workspace }}
+        run: yontrack validate --validation client --status PASSED
+```
+
 ### 7. Record the version, and verify
 
 Yontrack names the build itself. Attach the version that was published as a property, so the build can be
