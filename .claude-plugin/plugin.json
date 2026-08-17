@@ -16,6 +16,7 @@
     "continuous-delivery"
   ],
   "skills": [
-    "./skills/yontrack-github-actions"
+    "./skills/yontrack-github-actions",
+    "./skills/yontrack-auto-versioning"
   ]
 }
