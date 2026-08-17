@@ -1,6 +1,6 @@
 ---
 name: yontrack-github-actions
-description: Report a repository's CI to Yontrack from GitHub Actions — install and configure the Yontrack CLI, declare validations and promotions in .yontrack/ci.yaml, record validation runs, and query builds by promotion. Use when wiring a workflow to Yontrack, adding a validation stamp or a promotion level, or reading Yontrack build data from CI.
+description: Report a repository's CI to Yontrack from GitHub Actions — register the build once, link every job to it, declare validations and promotions in .yontrack/ci.yaml, and record validation runs. Use when wiring a workflow to Yontrack, adding a validation stamp or a promotion level, or reading Yontrack build data from CI.
 ---
 
 # Reporting GitHub Actions to Yontrack
@@ -9,9 +9,13 @@ Yontrack records what a delivery pipeline did: each **build**, the **validations
 and the **promotions** it earned. A workflow wired to Yontrack answers "is this version fit to deploy?"
 without anyone reading a log.
 
-Two moving parts: the [`ontrack-github-actions-cli-config`](https://github.com/nemerosa/ontrack-github-actions-cli-config)
-action installs and configures the `yontrack` CLI and registers the build, then the bare CLI records
-everything after that.
+One build per workflow run. **One job registers it; every other job links to it.**
+
+- [`ontrack-github-actions-cli-config`](https://github.com/nemerosa/ontrack-github-actions-cli-config)
+  registers the build — exactly once per run.
+- [`ontrack-github-actions-cli-library/ontrack-cli-workflow-build`](https://github.com/nemerosa/ontrack-github-actions-cli-library)
+  links a job to the build already registered, finding it by commit.
+- The bare `yontrack` CLI records everything after that.
 
 ## Steps
 
@@ -22,21 +26,18 @@ gh variable list   # expect YONTRACK_URL
 gh secret list     # expect YONTRACK_TOKEN
 ```
 
-Both are read by the config action. When either is missing, stop and ask — a token is minted in the
-Yontrack UI and only the human can do it.
+Both are needed by the registering job and by every linking job. When either is missing, stop and ask — a
+token is minted in the Yontrack UI and only the human can do it.
 
-### 2. Give every job the same build name
-
-`yontrack ci config` derives the build name from the environment, and `VERSION` wins when it is set.
-Put it at workflow level so every job agrees:
+### 2. Compute the version once, at workflow level
 
 ```yaml
 env:
-  VERSION: "0.1.${{ github.run_number }}"
+  VERSION: "1.0.${{ github.run_number }}"
 ```
 
-Jobs that previously computed a version now consume `$VERSION`. Without this, jobs that each configure
-the CLI register *different builds* and the validations scatter across them.
+The build is registered with this version, and the artefacts the run publishes carry the same one. A job
+that computes its own version describes a build nobody else is reporting to.
 
 ### 3. Declare validations and promotions
 
@@ -44,10 +45,20 @@ Write `.yontrack/ci.yaml` (see [Configuration file](#configuration-file)). Every
 records is declared here, and at least one promotion gates on them — a validation with no promotion above
 it is a stamp nobody reads.
 
-### 4. Configure the CLI in each validating job
+### 4. Register the build, in a job of its own
 
 ```yaml
-      - name: Yontrack configuration
+jobs:
+  yontrack:
+    name: Yontrack
+    runs-on: ubuntu-latest
+    outputs:
+      project: ${{ steps.config.outputs.projectName }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Register the build
+        id: config
         uses: nemerosa/ontrack-github-actions-cli-config@v1.3.0
         env:
           YONTRACK_URL: ${{ vars.YONTRACK_URL }}
@@ -57,16 +68,39 @@ it is a stamp nobody reads.
           github-token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-Pin `version`. An unpinned CLI lets a Yontrack release turn a green pipeline red in a repository nobody
-touched. The token keeps the download off the anonymous GitHub rate limit, which starts to matter once
-several jobs each install the CLI.
+This job runs first and does nothing else. It creates the project, the branch and the build, and exports
+the project name for the jobs that link to it.
 
-The action exports `YONTRACK_PROJECT_NAME`, `YONTRACK_BRANCH_NAME` and `YONTRACK_BUILD_NAME` for the rest
-of *that job*, and every later `yontrack` command reads them instead of `--project`, `--branch` and
-`--build`. Their scope is the job, so each job that validates configures the CLI itself. Concurrent jobs
-registering the same build is safe.
+Pin the CLI `version`. An unpinned CLI lets a Yontrack release turn a green pipeline red in a repository
+nobody touched. The token keeps the download off the anonymous GitHub rate limit.
 
-### 5. Record a validation after each meaningful step
+### 5. Link every other job to that build
+
+```yaml
+  build:
+    needs: yontrack
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Link to the Yontrack build
+        uses: nemerosa/ontrack-github-actions-cli-library/ontrack-cli-workflow-build@v1.0.3
+        with:
+          project: ${{ needs.yontrack.outputs.project }}
+          yontrack-url: ${{ vars.YONTRACK_URL }}
+          yontrack-token: ${{ secrets.YONTRACK_TOKEN }}
+          version: 5.1.0
+```
+
+The action installs the CLI, finds the build registered against `github.sha`, and exports
+`YONTRACK_PROJECT_NAME`, `YONTRACK_BRANCH_NAME` and `YONTRACK_BUILD_NAME` for the rest of that job — so
+every later `yontrack` command needs no `--project`, `--branch` or `--build`.
+
+`needs: yontrack` is what makes it work: the action searches for a build that must already exist. Calling
+`-config` in more than one job instead registers a *different* build per job, and validations then fail with
+`Build not found`.
+
+### 6. Record a validation after each meaningful step
 
 Give the step an `id`, then validate on its outcome:
 
@@ -79,22 +113,29 @@ Give the step an `id`, then validate on its outcome:
         run: |
           yontrack validate \
             --validation build \
-            --status ${{ steps.build.outcome == 'success' && 'PASSED' || 'FAILED' }}
+            junit --pattern "build/test-results/**/*.xml" --fail-when-no-results
 ```
 
 `steps.<id>.outcome` is empty only when the step was skipped, so this records `FAILED` when the build
-broke — which is the case worth seeing in Yontrack. Prefer typed data over a bare status wherever the
-step produces it (see [Validation data](#validation-data)).
+broke — which is the case worth seeing in Yontrack. Prefer typed data over a bare status wherever the step
+produces it (see [Validation data](#validation-data)).
 
-### 6. Verify against a real run
+### 7. Record the version, and verify
 
-Push, then read the build back:
+Yontrack names the build itself. Attach the version that was published as a property, so the build can be
+traced back to a deployable artefact:
+
+```bash
+yontrack build set-property release "$VERSION"
+```
+
+Then read it back after a real run:
 
 ```bash
 yontrack build search --with-promotion BRONZE --count 1 --output json
 ```
 
-Done when every declared validation appears on the build and the promotion is earned.
+Done when every declared validation appears on one build and the promotion is earned.
 
 ## Configuration file
 
@@ -132,8 +173,8 @@ build from the CI context and nothing else.
 
 Both the file and the CLI carry more than this: properties, notifications, workflows, auto-versioning,
 `@path` file inclusion, `--var` and `--env` template variables, Sprig functions. Reach for the
-[Yontrack reference documentation](https://docs.yontrack.com/yontrack/ref/index.html) rather than
-guessing at the schema.
+[Yontrack reference documentation](https://docs.yontrack.com/yontrack/ref/index.html) rather than guessing
+at the schema.
 
 ## Validation data
 
@@ -152,7 +193,7 @@ must be declared with a matching type in `.yontrack/ci.yaml` — `tests: {}` abo
 
 ## Beyond validation
 
-Once the CLI is configured, the same job can read and annotate the build:
+Once a job is linked, the same job can read and annotate the build:
 
 ```bash
 yontrack build set-property release "1.2.3"
@@ -166,5 +207,5 @@ action: one vocabulary covers validation and everything past it, where the actio
 leaves the workflow mixing two idioms.
 
 Likewise `ontrack-github-actions-cli-setup` is the previous generation — `node16`, an `ontrack-cli`
-executable, and a dozen action inputs in place of a configuration file. New workflows use
-`-config`; keep it that way.
+executable, and a dozen action inputs in place of a configuration file. New workflows use `-config`
+to register and `ontrack-cli-workflow-build` to link; keep it that way.
