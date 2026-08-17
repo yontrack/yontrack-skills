@@ -11,10 +11,10 @@ Agent skills for [Yontrack](https://docs.yontrack.com/yontrack/ref/index.html), 
 
 ## Skills
 
-- **`yontrack-github-actions`** — reporting a repository's CI to Yontrack from GitHub Actions:
+- **[`yontrack-github-actions`](skills/yontrack-github-actions/SKILL.md)** — reporting a repository's CI to Yontrack from GitHub Actions:
   installing and configuring the CLI, declaring validations and promotions in `.yontrack/ci.yaml`,
   recording validation runs, and reading build data back.
-- **`yontrack-auto-versioning`** — propagating a version between repositories on a promotion: declaring
+- **[`yontrack-auto-versioning`](skills/yontrack-auto-versioning/SKILL.md)** — propagating a version between repositories on a promotion: declaring
   auto-versioning on the target branch so a promoted build updates a version somewhere else.
 
 Agents reach these on their own; you can also invoke one by name.
