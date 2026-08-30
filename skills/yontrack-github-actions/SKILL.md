@@ -1,6 +1,6 @@
 ---
 name: yontrack-github-actions
-description: Report a repository's CI to Yontrack from GitHub Actions — register the build once, link every job to it, declare validations and promotions in .yontrack/ci.yaml, and record validation runs. Use when wiring a workflow to Yontrack, adding a validation stamp or a promotion level, or reading Yontrack build data from CI.
+description: Report a repository's CI to Yontrack from GitHub Actions — register the build once, link every job to it, declare validations and promotions in .yontrack/ci.yaml, and record validation runs with their run info. Use when wiring a workflow to Yontrack, adding a validation stamp or a promotion level, recording how long a step took, or reading Yontrack build data from CI.
 ---
 
 # Reporting GitHub Actions to Yontrack
@@ -107,18 +107,30 @@ Give the step an `id`, then validate on its outcome:
 ```yaml
       - name: Build
         id: build
-        run: ./gradlew build
+        run: |
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+          ./gradlew build
 
       - if: ${{ steps.build.outcome != '' }}
+        env:
+          STARTED: ${{ steps.build.outputs.started }}
         run: |
+          run_time_flag=""
+          if [ -n "${STARTED:-}" ]; then
+            run_time_flag="--run-time $(( $(date +%s) - STARTED ))"
+          fi
           yontrack validate \
             --validation build \
-            junit --pattern "build/test-results/**/*.xml" --fail-when-no-results
+            junit --pattern "build/test-results/**/*.xml" --fail-when-no-results \
+            $run_time_flag $YONTRACK_RUN_INFO
 ```
 
 `steps.<id>.outcome` is empty only when the step was skipped, so this records `FAILED` when the build
 broke — which is the case worth seeing in Yontrack. Prefer typed data over a bare status wherever the step
 produces it (see [Validation data](#validation-data)).
+
+The `started` output and `$YONTRACK_RUN_INFO` are what make the run measurable and traceable — do not
+drop them from a validation step (see [Run info](#run-info)).
 
 **Run `yontrack` from the root of the workspace.** The CLI reads its configuration from
 `./.yontrack-config.yaml`, resolved against the current directory, and the linking step writes it at the
@@ -132,7 +144,7 @@ fails with `No current configuration`:
 # ...
       - if: ${{ steps.test.outcome != '' }}
         working-directory: ${{ github.workspace }}
-        run: yontrack validate --validation client --status PASSED
+        run: yontrack validate --validation client --status PASSED $YONTRACK_RUN_INFO
 ```
 
 ### 7. Record the version, and verify
@@ -205,6 +217,80 @@ yontrack validate --validation coverage percentage --value 87
 
 `junit` reads the XML itself and is the one to reach for with a JVM, Node or Python test run. The stamp
 must be declared with a matching type in `.yontrack/ci.yaml` — `tests: {}` above.
+
+## Run info
+
+Every validation should carry **run info**: how long the step took, and where it ran. Without it the stamp
+is a light with no history — `ontrack_run_VALIDATION_RUN_time_seconds` is never emitted, the validation
+history charts an empty series, the branch tooltip drops the duration, and nothing links back to the CI run.
+
+The CLI is **purely declarative**. `GetRunInfo()` reads five flags and returns nothing when all five are
+unset, so a `yontrack validate` that does not spell them out sends `runInfo: null`. Nothing is inferred
+from `GITHUB_RUN_ID`, `GITHUB_EVENT_NAME` or `GITHUB_SHA`. This is silent: the validation still passes.
+
+### Where it ran
+
+The same four values everywhere, so set them once at workflow level:
+
+```yaml
+env:
+  YONTRACK_RUN_INFO: >-
+    --source-type github-workflow
+    --source-uri ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    --trigger-type ${{ github.event_name }}
+    --trigger-data ${{ github.sha }}
+```
+
+`github-workflow` is the source type Yontrack's own GitHub ingestion records, so a run reported by a
+workflow and one reported by a webhook read the same way in the UI. The values are a URL, an event name
+and a SHA — no whitespace — so expanding `$YONTRACK_RUN_INFO` unquoted at each call site is safe.
+
+### How long it took
+
+GitHub exposes **no step duration** to expressions; there is no `steps.<id>.duration`. Record the start as
+the **first line of the step being measured** and subtract in the reporting step:
+
+```yaml
+      - name: Integration tests
+        id: it
+        run: |
+          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+          ./gradlew integrationTest
+
+      - if: ${{ !cancelled() && steps.it.outcome != '' }}
+        env:
+          STARTED: ${{ steps.it.outputs.started }}
+        run: |
+          run_time_flag=""
+          if [ -n "${STARTED:-}" ]; then
+            run_time_flag="--run-time $(( $(date +%s) - STARTED ))"
+          fi
+          yontrack validate --validation integration --status "${{ steps.it.outcome == 'success' && 'PASSED' || 'FAILED' }}" \
+            $run_time_flag $YONTRACK_RUN_INFO
+```
+
+Writing the output inside the measured step is what makes a **failing** step still report its duration:
+the output survives the failure, where a value computed afterwards from a step that never ran does not.
+
+**Guard the subtraction.** When the measured step never ran, `STARTED` arrives empty, and bash evaluates
+an empty operand as `0` — `$(( $(date +%s) - STARTED ))` then quietly reports the Unix epoch, some 56
+years, into the very metric the run time exists to feed. Build the flag conditionally as above so an
+unknown start omits it instead.
+
+The measured span includes the seconds the runner spends between the two steps. That is noise next to a
+build or a test run; say so in a comment rather than implying the number is exact.
+
+### Rules
+
+- **Run-info flags go after the data subcommand.** `junit` and its siblings redeclare all five flags on
+  themselves, so `--validation build junit --pattern ... --run-time 42` is the form to write. With a bare
+  `--status` there is no subcommand and they follow it directly.
+- **`--run-time` is in seconds**, an integer.
+- **Measure the work, not the reporting.** A job that validates work done in *another* job — a matrix of
+  tests collected into one stamp — has no span of its own worth reporting. Have each leg write its duration
+  into its artefact and take the slowest in the reporting job; that is the wall clock of the parallel legs.
+- **Omit `--run-time` rather than guess.** A fabricated duration poisons the metric the stamp exists to
+  feed; the other four flags still go out without it.
 
 ## Beyond validation
 
