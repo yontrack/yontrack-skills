@@ -105,15 +105,20 @@ every later `yontrack` command needs no `--project`, `--branch` or `--build`.
 Give the step an `id`, then validate on its outcome:
 
 ```yaml
+    steps:
+      - name: Record the job start
+        id: job_start
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      # ... checkout, toolchain setup, caches ...
+
       - name: Build
         id: build
-        run: |
-          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          ./gradlew build
+        run: ./gradlew build
 
       - if: ${{ steps.build.outcome != '' }}
         env:
-          STARTED: ${{ steps.build.outputs.started }}
+          STARTED: ${{ steps.job_start.outputs.started }}
         run: |
           run_time_flag=""
           if [ -n "${STARTED:-}" ]; then
@@ -247,19 +252,25 @@ and a SHA — no whitespace — so expanding `$YONTRACK_RUN_INFO` unquoted at ea
 
 ### How long it took
 
-GitHub exposes **no step duration** to expressions; there is no `steps.<id>.duration`. Record the start as
-the **first line of the step being measured** and subtract in the reporting step:
+GitHub exposes **no step or job duration** to expressions — there is no `steps.<id>.duration` and no
+`job.duration`. You have to take the clock yourself. Record the start in a **first `run:` step of the
+job** and subtract at each reporting step:
 
 ```yaml
+    steps:
+      - name: Record the job start
+        id: job_start
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      # ... checkout, toolchain setup, caches, the work ...
+
       - name: Integration tests
         id: it
-        run: |
-          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          ./gradlew integrationTest
+        run: ./gradlew integrationTest
 
       - if: ${{ !cancelled() && steps.it.outcome != '' }}
         env:
-          STARTED: ${{ steps.it.outputs.started }}
+          STARTED: ${{ steps.job_start.outputs.started }}
         run: |
           run_time_flag=""
           if [ -n "${STARTED:-}" ]; then
@@ -269,16 +280,19 @@ the **first line of the step being measured** and subtract in the reporting step
             $run_time_flag $YONTRACK_RUN_INFO
 ```
 
-Writing the output inside the measured step is what makes a **failing** step still report its duration:
-the output survives the failure, where a value computed afterwards from a step that never ran does not.
+**Measure the job, not one step of it.** Checkout, toolchain setup, cache restore, starting a database or
+pulling images are all part of what a stamp costs; timing only the `./gradlew` line reports a number well
+under what the pipeline actually spends, and the gap can be large. Timing one step instead is worth it
+only when a single job carries several stamps for genuinely separate pieces of work.
 
-**Guard the subtraction.** When the measured step never ran, `STARTED` arrives empty, and bash evaluates
-an empty operand as `0` — `$(( $(date +%s) - STARTED ))` then quietly reports the Unix epoch, some 56
-years, into the very metric the run time exists to feed. Build the flag conditionally as above so an
-unknown start omits it instead.
+Two spans stay outside the measurement no matter what, and are worth a comment rather than a pretence of
+exactness: the runner's own *Set up job*, which precedes every step a workflow can observe, and whatever
+the job does **after** the validation has been recorded.
 
-The measured span includes the seconds the runner spends between the two steps. That is noise next to a
-build or a test run; say so in a comment rather than implying the number is exact.
+**Guard the subtraction.** When there is no recorded start, `STARTED` arrives empty, and bash evaluates an
+empty operand as `0` — `$(( $(date +%s) - STARTED ))` then quietly reports the Unix epoch, some 56 years,
+into the very metric the run time exists to feed. Build the flag conditionally as above so an unknown
+start omits it instead.
 
 ### Rules
 
@@ -287,8 +301,9 @@ build or a test run; say so in a comment rather than implying the number is exac
   `--status` there is no subcommand and they follow it directly.
 - **`--run-time` is in seconds**, an integer.
 - **Measure the work, not the reporting.** A job that validates work done in *another* job — a matrix of
-  tests collected into one stamp — has no span of its own worth reporting. Have each leg write its duration
-  into its artefact and take the slowest in the reporting job; that is the wall clock of the parallel legs.
+  tests collected into one stamp — has no span of its own worth reporting. Have each leg write its own job
+  duration into its artefact and take the slowest in the reporting job; that is the wall clock of the
+  parallel legs.
 - **Omit `--run-time` rather than guess.** A fabricated duration poisons the metric the stamp exists to
   feed; the other four flags still go out without it.
 
