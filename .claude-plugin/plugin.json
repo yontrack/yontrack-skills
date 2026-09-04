@@ -1,6 +1,6 @@
 {
   "name": "yontrack-skills",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Agent skills for Yontrack — wiring a repository's CI to Yontrack and driving the Yontrack CLI.",
   "author": {
     "name": "Yontrack",
@@ -17,6 +17,7 @@
   ],
   "skills": [
     "./skills/yontrack-github-actions",
-    "./skills/yontrack-auto-versioning"
+    "./skills/yontrack-auto-versioning",
+    "./skills/yontrack-changelogs"
   ]
 }
