@@ -81,6 +81,17 @@ triggers on `push` alone, so a PR would collect no checks and exist only as a re
 cost: with no pull request, **a rejected request is silent**, and the target quietly keeps its old version.
 Under `PUSH`, `autoApproval`, `reviewers` and the PR templates have no effect.
 
+The target repository can be on GitHub, Bitbucket Server or **Bitbucket Cloud**. On Bitbucket Cloud, two
+differences for pull requests:
+
+- **Auto-approval needs the auto-merge identity.** The Bitbucket Cloud configuration used by the target
+  project must carry `autoMergeEmail` and `autoMergeToken` — an Atlassian account *other than* the
+  configuration's own, with write access to the target repository, since nobody can approve their own pull
+  request. Without it, an order with `autoApproval` fails before any pull request is created. Yontrack then
+  approves, waits for the pull request's builds, and merges it itself.
+- **Only `autoApprovalMode: CLIENT`** (the default). Bitbucket Cloud cannot schedule a merge for when checks
+  pass, so `SCM` mode is rejected.
+
 ### 5. Report back to the source, if useful
 
 `backValidation: <stamp>` puts a validation on the *source* build once its version has reached the target.
@@ -132,5 +143,6 @@ Yontrack emits `auto-versioning-error`, `auto-versioning-post-processing-error`,
 the configuration when silent failure is not acceptable — the alternative to noticing late.
 
 Post-processing, branch expressions (`&regex`, `&same`, `&most-recent`, `&same-release`), approval modes and
-audit cleanup are all real and all out of scope here — see the
+audit cleanup are all real and all out of scope here. On Bitbucket Cloud, `postProcessing: bitbucket-cloud`
+triggers a `custom:` pipeline that clones the upgrade branch, runs the command and pushes back to it. See the
 [auto-versioning reference](https://docs.yontrack.com/yontrack/ref/latest/content/integrations/auto-versioning/auto-versioning.html).
