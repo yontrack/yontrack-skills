@@ -81,8 +81,8 @@ triggers on `push` alone, so a PR would collect no checks and exist only as a re
 cost: with no pull request, **a rejected request is silent**, and the target quietly keeps its old version.
 Under `PUSH`, `autoApproval`, `reviewers` and the PR templates have no effect.
 
-The target repository can be on GitHub, Bitbucket Server or **Bitbucket Cloud**. On Bitbucket Cloud, two
-differences for pull requests:
+The target repository can be on GitHub, Bitbucket Server, **Bitbucket Cloud** or **GitLab**. On Bitbucket
+Cloud, two differences for pull requests:
 
 - **Auto-approval needs the auto-merge identity.** The Bitbucket Cloud configuration used by the target
   project must carry `autoMergeEmail` and `autoMergeToken` — an Atlassian account *other than* the
@@ -91,6 +91,15 @@ differences for pull requests:
   approves, waits for the pull request's builds, and merges it itself.
 - **Only `autoApprovalMode: CLIENT`** (the default). Bitbucket Cloud cannot schedule a merge for when checks
   pass, so `SCM` mode is rejected.
+
+On **GitLab**, gitlab.com or self-managed, the pull request is a merge request, and both
+`autoApprovalMode` values work:
+
+- **`CLIENT`** (the default) — Yontrack approves the merge request, waits for its pipeline, and merges it.
+  GitLab has no separate approver identity to configure: whether the configuration's own account may approve
+  what it opened is the project's `merge_requests_author_approval` setting, which must allow it.
+- **`SCM`** — Yontrack hands the merge to GitLab's auto-merge, which merges once the pipeline passes. On a
+  project with merge trains, the merge request joins the train instead of merging directly.
 
 ### 5. Report back to the source, if useful
 
@@ -144,5 +153,7 @@ the configuration when silent failure is not acceptable — the alternative to n
 
 Post-processing, branch expressions (`&regex`, `&same`, `&most-recent`, `&same-release`), approval modes and
 audit cleanup are all real and all out of scope here. On Bitbucket Cloud, `postProcessing: bitbucket-cloud`
-triggers a `custom:` pipeline that clones the upgrade branch, runs the command and pushes back to it. See the
+triggers a `custom:` pipeline that clones the upgrade branch, runs the command and pushes back to it. On GitLab,
+`postProcessing: gitlab` runs the project's `.gitlab-ci.yml` on a ref with `UPGRADE_BRANCH` and the other
+variables set — a job selects itself with `rules: [{ if: $UPGRADE_BRANCH }]` — and waits for it. See the
 [auto-versioning reference](https://docs.yontrack.com/yontrack/ref/latest/content/integrations/auto-versioning/auto-versioning.html).
