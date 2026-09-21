@@ -142,7 +142,7 @@ Yontrack emits `auto-versioning-error`, `auto-versioning-post-processing-error`,
 `auto-versioning-pr-merge-timeout-error` and `auto-versioning-success`. Subscribe with `notifications` on
 the configuration when silent failure is not acceptable — the alternative to noticing late.
 
-Post-processing — including `postProcessing: bitbucket-cloud`, which runs a `custom:` Bitbucket pipeline on
-the upgrade branch before the change lands — branch expressions (`&regex`, `&same`, `&most-recent`, `&same-release`), approval modes and
-audit cleanup are all real and all out of scope here — see the
+Post-processing, branch expressions (`&regex`, `&same`, `&most-recent`, `&same-release`), approval modes and
+audit cleanup are all real and all out of scope here. On Bitbucket Cloud, `postProcessing: bitbucket-cloud`
+triggers a `custom:` pipeline that clones the upgrade branch, runs the command and pushes back to it. See the
 [auto-versioning reference](https://docs.yontrack.com/yontrack/ref/latest/content/integrations/auto-versioning/auto-versioning.html).

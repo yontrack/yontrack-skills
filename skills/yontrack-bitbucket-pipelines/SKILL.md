@@ -155,15 +155,15 @@ The alternative looks the build up again in each step, by commit:
 eval "$(yontrack build search --project my-project --commit "$BITBUCKET_COMMIT" --count 1 --output env)"
 ```
 
-It prints the same exports, but costs a query per step, needs the project name in every step, and finds the
-build through the Git commit property `ci config` set on it. Take it only when artifacts are not an option — a
+It prints the same exports, but costs a query per step and needs the project name in every step. It finds
+the build through the Git commit property `ci config` set on it. Take it only when artifacts are not an option — a
 separate pipeline reporting against a build registered by another one, for instance.
 
 ### 7. Record a validation from `after-script`
 
 `script` stops at its first failing command, so a validation placed there is skipped exactly when it matters.
 `after-script` runs once `script` is over, pass or fail, and Bitbucket sets `BITBUCKET_EXIT_CODE` to the
-outcome:
+outcome. The first command of `script` writes the start time to `.yontrack-started`, for the run time:
 
 ```yaml
       - step:
@@ -222,8 +222,8 @@ Done when every declared validation appears on one build and the promotion is ea
 
 ## Configuration file
 
-`.yontrack/ci.yaml`, processed as a template then parsed. `defaults` applies to every branch; `custom`
-entries add to it per branch.
+`.yontrack/ci.yaml`, processed as a template then parsed. `defaults` applies to every branch; each
+`custom.configs` entry adds to it when all its `conditions` hold.
 
 ```yaml
 version: v1
@@ -240,15 +240,17 @@ configuration:
             - unit-tests
             - docker
   custom:
-    - conditions:
-        branch: main
-      branch:
-        validations:
-          release: {}
-        promotions:
-          SILVER:
-            validations:
-              - release
+    configs:
+      - conditions:
+          - name: branch
+            config: main
+        branch:
+          validations:
+            release: {}
+          promotions:
+            SILVER:
+              validations:
+                - release
 ```
 
 The minimal file is `version: v1` with `configuration: {}` — Yontrack then creates project, branch and

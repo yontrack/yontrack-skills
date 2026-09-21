@@ -171,8 +171,8 @@ Done when every declared validation appears on one build and the promotion is ea
 
 ## Configuration file
 
-`.yontrack/ci.yaml`, processed as a template then parsed. `defaults` applies to every branch; `custom`
-entries add to it per branch.
+`.yontrack/ci.yaml`, processed as a template then parsed. `defaults` applies to every branch; each
+`custom.configs` entry adds to it when all its `conditions` hold.
 
 ```yaml
 version: v1
@@ -189,15 +189,17 @@ configuration:
             - build
             - docker
   custom:
-    - conditions:
-        branch: main
-      branch:
-        validations:
-          release: {}
-        promotions:
-          SILVER:
-            validations:
-              - release
+    configs:
+      - conditions:
+          - name: branch
+            config: main
+        branch:
+          validations:
+            release: {}
+          promotions:
+            SILVER:
+              validations:
+                - release
 ```
 
 The minimal file is `version: v1` with `configuration: {}` — Yontrack then creates project, branch and
