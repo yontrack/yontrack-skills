@@ -154,6 +154,5 @@ the configuration when silent failure is not acceptable — the alternative to n
 Post-processing, branch expressions (`&regex`, `&same`, `&most-recent`, `&same-release`), approval modes and
 audit cleanup are all real and all out of scope here. On Bitbucket Cloud, `postProcessing: bitbucket-cloud`
 triggers a `custom:` pipeline that clones the upgrade branch, runs the command and pushes back to it. On GitLab,
-`postProcessing: gitlab` runs the project's `.gitlab-ci.yml` on a ref with `UPGRADE_BRANCH` and the other
-variables set — a job selects itself with `rules: [{ if: $UPGRADE_BRANCH }]` — and waits for it. See the
+`postProcessing: gitlab` triggers a pipeline on the configured project and ref, and waits for it. See the
 [auto-versioning reference](https://docs.yontrack.com/yontrack/ref/latest/content/integrations/auto-versioning/auto-versioning.html).
