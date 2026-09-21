@@ -17,6 +17,8 @@
         "github-actions",
         "bitbucket",
         "bitbucket-pipelines",
+        "gitlab",
+        "gitlab-ci",
         "continuous-delivery"
       ]
     }

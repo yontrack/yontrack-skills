@@ -17,6 +17,9 @@ Agent skills for [Yontrack](https://docs.yontrack.com/yontrack/ref/index.html), 
 - **[`yontrack-bitbucket-pipelines`](skills/yontrack-bitbucket-pipelines/SKILL.md)** — the same from Bitbucket Pipelines:
   installing the pinned CLI in each step, registering the build once and handing it to later steps as an
   artifact, and recording validations from `after-script` with their run info.
+- **[`yontrack-gitlab-ci`](skills/yontrack-gitlab-ci/SKILL.md)** — the same from GitLab CI/CD: installing the
+  pinned CLI in each job, registering the build once and handing it to later jobs as a `dotenv` artifact, and
+  recording validations from `after_script` with their run info.
 - **[`yontrack-auto-versioning`](skills/yontrack-auto-versioning/SKILL.md)** — propagating a version between repositories on a promotion: declaring
   auto-versioning on the target branch so a promoted build updates a version somewhere else.
 - **[`yontrack-changelogs`](skills/yontrack-changelogs/SKILL.md)** — rendering a change log in a template: on a promotion
