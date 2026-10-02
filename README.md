@@ -1,6 +1,7 @@
 # Yontrack skills
 
-Agent skills for [Yontrack](https://docs.yontrack.com/yontrack/ref/index.html), packaged as a Claude Code plugin.
+Agent skills for [Yontrack](https://yontrack.com), packaged as a Claude Code plugin. The skills follow the
+[Yontrack documentation](https://docs.yontrack.com/yontrack/ref/index.html).
 
 ## Installing
 
