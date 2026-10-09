@@ -19,7 +19,9 @@
         "bitbucket-pipelines",
         "gitlab",
         "gitlab-ci",
-        "continuous-delivery"
+        "continuous-delivery",
+        "agents",
+        "ai-agents"
       ]
     }
   ]

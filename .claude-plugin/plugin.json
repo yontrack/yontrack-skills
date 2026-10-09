@@ -1,6 +1,6 @@
 {
   "name": "yontrack-skills",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Agent skills for Yontrack — wiring a repository's CI to Yontrack and driving the Yontrack CLI.",
   "author": {
     "name": "Yontrack",
@@ -17,13 +17,16 @@
     "bitbucket-pipelines",
     "gitlab",
     "gitlab-ci",
-    "continuous-delivery"
+    "continuous-delivery",
+    "agents",
+    "ai-agents"
   ],
   "skills": [
     "./skills/yontrack-github-actions",
     "./skills/yontrack-bitbucket-pipelines",
     "./skills/yontrack-gitlab-ci",
     "./skills/yontrack-auto-versioning",
-    "./skills/yontrack-changelogs"
+    "./skills/yontrack-changelogs",
+    "./skills/yontrack-agent-conduct"
   ]
 }

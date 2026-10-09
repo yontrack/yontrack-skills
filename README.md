@@ -26,6 +26,11 @@ Agent skills for [Yontrack](https://yontrack.com), packaged as a Claude Code plu
 - **[`yontrack-changelogs`](skills/yontrack-changelogs/SKILL.md)** — rendering a change log in a template: on a promotion
   notification, in a workflow node, or in an auto-versioning pull request body. Which renderable measures which
   interval, plain versus semantic (conventional-commit) form, and why one comes out empty.
+- **[`yontrack-agent-conduct`](skills/yontrack-agent-conduct/SKILL.md)** — how an AI agent behaves on a Yontrack delivery
+  record, whatever the agent: identifying itself with its agent token and session, reading its own policy and a
+  build's readiness before proposing a merge, a promotion or a deployment, recording evidence as validation runs,
+  and stopping at the gates a person holds. Plain Markdown with nothing Claude-specific: point to it from an
+  `AGENTS.md` to give the same conduct to Codex, Copilot or any other agent.
 
 Agents reach these on their own; you can also invoke one by name.
 
